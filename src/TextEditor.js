@@ -25,7 +25,7 @@ const TextEditor = () => {
     const [quill, setQuill] = useState();
 
     useEffect(() => {
-        const s = io("http://localhost:3001");
+        const s = io("http://localhost:7201");
         setSocket(s);
 
         return () => {
@@ -44,45 +44,79 @@ const TextEditor = () => {
             clearInterval(interval);
         }
     }, [socket, quill])
-    useEffect(() => {
-        if (socket == null || quill == null) return;
 
-        socket.once('load-document', document => {
-            quill.setContents(document);
+
+    // Load initial document and resetDocument when needed
+    useEffect(() => {
+        console.log('load initial document', socket, quill);
+        if (socket == null || quill == null) return;
+        
+        // socket.once('load-document', document => {
+        //     quill.setContents(document);
+        //     quill.enable();
+        // });
+
+        socket.once('getInitialDocument', deltas => {
+            console.log('initialDocument', deltas);
+            quill.setContents('');
+            const contents = deltas.forEach(delta => {
+                const parsed = JSON.parse(delta);
+                console.log('parsed', parsed)
+                quill.updateContents(parsed);
+            });
+
+            // console.log('contents', contents, typeof contents);
+            // quill.setContents(contents);
             quill.enable();
         });
 
-        socket.emit('get-document', documentId);
+        socket.on('resetDocument', deltas => {
+            console.log('on resetDocument', deltas);
+            quill.setContents('');
+            const contents = deltas.forEach(delta => {
+                const parsed = JSON.parse(delta);
+                console.log('parsed', parsed)
+                quill.updateContents(parsed);
+                // move cursor to end of contents
+                quill.setSelection(quill.getLength(), 0);
+            });
+        } )
+
+        socket.emit('getInitialDocument', documentId);
 
     }, [socket, quill, documentId])
 
+    
+    // change document when new delta arrives
     useEffect(() => {
         if (socket == null || quill == null) return;
 
-        const handler = (delta) => {
+        const newDeltaHandler = (delta, index) => {
+            console.log('newDeltaHandler', delta, index);
            quill.updateContents(delta);
         }
 
-        socket.on('receive-changes', handler);
+        socket.on('newDelta', newDeltaHandler);
 
         return () => {
-            socket.off('receive-changes', handler);
+            socket.off('newDelta', newDeltaHandler);
         }
     }, [socket, quill])
 
+    // send new delta when document changes
     useEffect(() => {
         if (socket == null || quill == null) return;
 
-        const handler = (delta, oldDelta, source) => {
+        const newDeltaHandler = (delta, oldDelta, source) => {
             if (source !== 'user') return;
 
-            socket.emit("send-changes", delta);
+            socket.emit("newDelta", delta, 1);
         }
 
-        quill.on('text-change', handler);
+        quill.on('text-change', newDeltaHandler);
 
         return () => {
-            quill.off('text-change', handler);
+            quill.off('text-change', newDeltaHandler);
         }
     }, [socket, quill])
 
