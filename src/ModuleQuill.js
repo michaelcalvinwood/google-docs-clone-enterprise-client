@@ -17,12 +17,32 @@ const TOOLBAR_OPTIONS = [
     [{ indent:  "-1" }, { indent:  "+1" }, { align: [] }],
     ["link", "image", "video", "code-block"],
     ["clean"],
+
 ]
+
+
 
 const TextEditor = () => {
     const {id: documentId} = useParams();
     const [socket, setSocket] = useState();
-    const [quill, setQuill] = useState();
+    const [quill, _setQuill] = useState();
+
+    const quillRef = useRef(quill);
+
+    const setQuill = val => {
+        quillRef.current = val;
+        _setQuill(val);
+    }
+
+    const imageHandler = () => {
+        const curQuill = quillRef.current;
+        console.log('quill', curQuill)
+        const range = curQuill.getSelection();
+        const value = "https://www.rd.com/wp-content/uploads/2017/10/These-Funny-Dog-Videos-Are-the-Break-You-Need-Right-Now_493370860-Jenn_C.jpg?resize=640,426";
+        curQuill.insertEmbed(range.index, 'image', value, Quill.sources.USER);
+        console.log('image handler', range);
+       
+    }
 
     useEffect(() => {
         const s = io("http://localhost:7201");
@@ -51,22 +71,15 @@ const TextEditor = () => {
         console.log('load initial document', socket, quill);
         if (socket == null || quill == null) return;
         
-        // socket.once('load-document', document => {
-        //     quill.setContents(document);
-        //     quill.enable();
-        // });
-
         socket.once('getInitialDocument', deltas => {
             console.log('initialDocument', deltas);
+            
             quill.setContents('');
             const contents = deltas.forEach(delta => {
                 const parsed = JSON.parse(delta);
                 console.log('parsed', parsed)
                 quill.updateContents(parsed);
             });
-
-            // console.log('contents', contents, typeof contents);
-            // quill.setContents(contents);
             quill.enable();
         });
 
@@ -77,12 +90,16 @@ const TextEditor = () => {
                 const parsed = JSON.parse(delta);
                 console.log('parsed', parsed)
                 quill.updateContents(parsed);
-                // move cursor to end of contents
-                quill.setSelection(quill.getLength(), 0);
             });
+
+            // move cursor to end of contents
+            quill.setSelection(quill.getLength(), 0);
+
         } )
 
         socket.emit('getInitialDocument', documentId);
+
+        //TODO: use return to clean up socket event handlers
 
     }, [socket, quill, documentId])
 
@@ -103,11 +120,14 @@ const TextEditor = () => {
         }
     }, [socket, quill])
 
+
     // send new delta when document changes
     useEffect(() => {
         if (socket == null || quill == null) return;
 
         const newDeltaHandler = (delta, oldDelta, source) => {
+            console.log('on text-change', delta);
+
             if (source !== 'user') return;
 
             socket.emit("newDelta", delta, 1);
@@ -130,20 +150,27 @@ const TextEditor = () => {
         const settings = {
             theme: "snow",
             modules: {
-                toolbar: TOOLBAR_OPTIONS
+                toolbar: {
+                    container: TOOLBAR_OPTIONS,
+                    handlers: {
+                        image: imageHandler,
+                    }
+                },
+               
             }
         }
         
         const q = new Quill(editor, settings);
         q.disable();
         q.setText('Loading...')
+        console.log('setQuill', q);
         setQuill(q);
 
         return;
     }, []);
 
     return (
-    <div className="container" ref={wrapperRef}>
+    <div className="module-quill" ref={wrapperRef}>
         
     </div>
   )

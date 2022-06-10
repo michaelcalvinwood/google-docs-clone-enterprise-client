@@ -4,7 +4,7 @@ import {
   Route,
   Navigate
 } from 'react-router-dom'
-import TextEditor from "./TextEditor";
+import TextEditor from "./ModuleQuill";
 import { v4 as uuidV4 } from 'uuid';
 
 
