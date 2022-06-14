@@ -1,4 +1,4 @@
-import './styles.css';
+import './styles.scss';
 import React, {useCallback, useEffect, useRef, useState } from 'react';
 import Quill from 'quill';
 import "quill/dist/quill.snow.css";
@@ -36,11 +36,10 @@ const TextEditor = () => {
 
     const imageHandler = () => {
         const curQuill = quillRef.current;
-        console.log('quill', curQuill)
         const range = curQuill.getSelection();
         const value = "https://www.rd.com/wp-content/uploads/2017/10/These-Funny-Dog-Videos-Are-the-Break-You-Need-Right-Now_493370860-Jenn_C.jpg?resize=640,426";
         curQuill.insertEmbed(range.index, 'image', value, Quill.sources.USER);
-        console.log('image handler', range);
+        
        
     }
 
