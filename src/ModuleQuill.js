@@ -4,43 +4,42 @@ import Quill from 'quill';
 import "quill/dist/quill.snow.css";
 import { io } from 'socket.io-client';
 import { useParams } from 'react-router-dom';
-
-const SAVE_INERVAL_MS = 5000;
-const TOOLBAR_OPTIONS = [
-    [{ font: [] }],
-    [{ header: [1, 2, 3, 4, 5, 6, false] }],
-    ["bold", "italic", "underline", "strike"],
-    [{ color: [] }, { background: [] }],
-    [{ script:  "sub" }, { script:  "super" }],
-    ["blockquote", "code-block"],
-    [{ list:  "ordered" }, { list:  "bullet" }],
-    [{ indent:  "-1" }, { indent:  "+1" }, { align: [] }],
-    ["link", "image", "video", "code-block"],
-    ["clean"],
-
-]
-
-
+import {useDropzone} from 'react-dropzone';
 
 const TextEditor = () => {
     const {id: documentId} = useParams();
     const [socket, setSocket] = useState();
     const [quill, _setQuill] = useState();
+    const [insertImage, setInsertImage] = useState(false);
 
     const quillRef = useRef(quill);
 
+    // special state setters for values that need to be synchronously accessed
     const setQuill = val => {
         quillRef.current = val;
         _setQuill(val);
     }
 
+    const TOOLBAR_OPTIONS = [
+        [{ font: [] }],
+        [{ header: [1, 2, 3, 4, 5, 6, false] }],
+        ["bold", "italic", "underline", "strike"],
+        [{ color: [] }, { background: [] }],
+        [{ script:  "sub" }, { script:  "super" }],
+        ["blockquote", "code-block"],
+        [{ list:  "ordered" }, { list:  "bullet" }],
+        [{ indent:  "-1" }, { indent:  "+1" }, { align: [] }],
+        ["link", "image", "video", "code-block"],
+        ["clean"],
+    
+    ]    
+
     const imageHandler = () => {
-        const curQuill = quillRef.current;
-        const range = curQuill.getSelection();
-        const value = "https://www.rd.com/wp-content/uploads/2017/10/These-Funny-Dog-Videos-Are-the-Break-You-Need-Right-Now_493370860-Jenn_C.jpg?resize=640,426";
-        curQuill.insertEmbed(range.index, 'image', value, Quill.sources.USER);
-        
-       
+        // const curQuill = quillRef.current;
+        // const range = curQuill.getSelection();
+        // const value = "https://www.rd.com/wp-content/uploads/2017/10/These-Funny-Dog-Videos-Are-the-Break-You-Need-Right-Now_493370860-Jenn_C.jpg?resize=640,426";
+        // curQuill.insertEmbed(range.index, 'image', value, Quill.sources.USER);
+        setInsertImage(true);
     }
 
     useEffect(() => {
@@ -139,6 +138,7 @@ const TextEditor = () => {
         }
     }, [socket, quill])
 
+    // add quill editor whenever the component is rendered
     const wrapperRef = useCallback((wrapper) => {
         if (wrapper == null) return;
         wrapper.innerHTML = '';
@@ -168,9 +168,29 @@ const TextEditor = () => {
         return;
     }, []);
 
+    const onDrop =  useCallback(acceptedFiles => {
+        console.log(acceptedFiles);
+    
+    }, [])
+
+    const {getRootProps, getInputProps, isDragActive} = useDropzone({onDrop})
+
     return (
-    <div className="module-quill" ref={wrapperRef}>
-        
+    <div className="module-quill">
+        <div className="module-quill__editor" ref={wrapperRef} />
+        { insertImage &&
+            <div 
+                {...getRootProps()}
+                className='module-quill-dropzone-area'>
+                <input 
+                    {...getInputProps()} 
+                    className='module-quill__dropzone-input'/>
+                { isDragActive ?
+                    <p>Drop the files here ...</p> :
+                    <p>Drag 'n' drop some files here, or click to select files</p>
+                }
+           </div>
+        }
     </div>
   )
 }
