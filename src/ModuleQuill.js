@@ -1,4 +1,4 @@
-import './styles.scss';
+import './ModuleQuill.scss';
 import React, {useCallback, useEffect, useRef, useState } from 'react';
 import Quill from 'quill';
 import "quill/dist/quill.snow.css";
@@ -35,10 +35,7 @@ const TextEditor = () => {
     ]    
 
     const imageHandler = () => {
-        // const curQuill = quillRef.current;
-        // const range = curQuill.getSelection();
-        // const value = "https://www.rd.com/wp-content/uploads/2017/10/These-Funny-Dog-Videos-Are-the-Break-You-Need-Right-Now_493370860-Jenn_C.jpg?resize=640,426";
-        // curQuill.insertEmbed(range.index, 'image', value, Quill.sources.USER);
+        
         setInsertImage(true);
     }
 
@@ -50,19 +47,6 @@ const TextEditor = () => {
             s.disconnect();
         }
     }, [])
-
-    useEffect(() => {
-        if (socket == null || quill == null) return;
-
-        const interval = setInterval(() => {
-            socket.emit('save-document', quill.getContents());
-        }, SAVE_INERVAL_MS);
-
-        return () => {
-            clearInterval(interval);
-        }
-    }, [socket, quill])
-
 
     // Load initial document and resetDocument when needed
     useEffect(() => {
@@ -181,13 +165,27 @@ const TextEditor = () => {
         { insertImage &&
             <div 
                 {...getRootProps()}
-                className='module-quill-dropzone-area'>
+                className='module-quill__dropzone-area'>
                 <input 
                     {...getInputProps()} 
                     className='module-quill__dropzone-input'/>
-                { isDragActive ?
-                    <p>Drop the files here ...</p> :
-                    <p>Drag 'n' drop some files here, or click to select files</p>
+                <p className='module-quill__instructions'>
+                    {   isDragActive ? 
+                        "Drop the files here ..." : 
+                        "Drag 'n' drop some files here, or click to select files"
+                    }
+                    <button className='module-quill__cancel-image-button'
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        setInsertImage(false)
+                        }
+                    }>
+                        Cancel
+                    </button>
+                </p>
+                { 
+                    
+                    
                 }
            </div>
         }

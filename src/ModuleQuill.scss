@@ -31,6 +31,33 @@
         border: none;
         box-shadow: 0 0 5px 0 rgba(0, 0, 0, .5);
     }
+    &__dropzone-area {
+        position: fixed;
+        top: 0;
+        left: 0;
+        height: 100vh;
+        width: 100vw;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 100;
+        background-color: rgba(0, 0, 0, .5);
+    }
+    &__instructions {
+        position: relative;
+        background-color: white;
+        padding: 3rem;
+        z-index: 200;
+        border-radius: 4px;
+        border: 1px solid blue;
+        cursor: pointer;
+    }
+    &__cancel-image-button {
+        display: block;
+        margin: 1rem auto 0 auto;
+        cursor: pointer;
+
+    }
 }
 
 @page {
