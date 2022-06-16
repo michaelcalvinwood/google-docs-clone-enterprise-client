@@ -5,19 +5,34 @@ import "quill/dist/quill.snow.css";
 import { io } from 'socket.io-client';
 import { useParams } from 'react-router-dom';
 import {useDropzone} from 'react-dropzone';
+import axios from 'axios';
 
 const TextEditor = () => {
     const {id: documentId} = useParams();
-    const [socket, setSocket] = useState();
+    const [socket, _setSocket] = useState();
     const [quill, _setQuill] = useState();
+    const [images, _setImages] = useState();
     const [insertImage, setInsertImage] = useState(false);
 
+    const socketRef = useRef(socket);
     const quillRef = useRef(quill);
+    const imagesRef = useRef(images);
 
-    // special state setters for values that need to be synchronously accessed
+    // special state setters for values that need to be synchronously accessed and/or accessed within event handlers
+
     const setQuill = val => {
         quillRef.current = val;
         _setQuill(val);
+    }
+
+    const setSocket = s => {
+        socketRef.current = s;
+        _setSocket(s);
+    }
+
+    const setImages = i => {
+        imagesRef.current = i;
+        _setImages(i);
     }
 
     const TOOLBAR_OPTIONS = [
@@ -34,14 +49,51 @@ const TextEditor = () => {
     
     ]    
 
-    const imageHandler = () => {
-        
-        setInsertImage(true);
-    }
+    const imageHandler = () => setInsertImage(true);
 
     useEffect(() => {
         const s = io("http://localhost:7201");
         setSocket(s);
+
+        s.on('get-upload-url', async result => {
+            console.log('on get-upload-url', result);
+            const selectedImages = imagesRef.current;
+
+            console.log(selectedImages);
+
+            axios.defaults.headers.put['Access-Control-Allow-Origin'] = '*';
+
+            for (let i = 0; i < result.length; ++i) {
+                const selectedImage = selectedImages.find(image => image.path === result[i].path);
+
+                console.log('selectedImage', selectedImage);
+                const request = {
+                    url: result[i].url,
+                    method: 'put',
+                    data: selectedImage,
+                    headers: {
+                        'Content-Type': 'image',
+                        'x-amz-acl': 'public-read',
+                    }
+                }
+
+                try {
+                    const response = await axios(request);
+                    console.log(response);
+                    const curQuill = quillRef.current;
+                    console.log('quill', curQuill)
+                    const range = curQuill.selection.savedRange;
+                    console.log('range', range);
+                    const value = result[i].url;
+                    curQuill.insertEmbed(range.index, 'image', value, Quill.sources.USER);
+                    
+                } catch(e) {
+                    console.error(e);
+                }
+            }
+            
+            
+        })
 
         return () => {
             s.disconnect();
@@ -152,8 +204,61 @@ const TextEditor = () => {
         return;
     }, []);
 
+    const getFileExtension = fileName => {
+        const loc = fileName.lastIndexOf('.');
+        if (loc === -1) return false;
+        return fileName.substring(loc+1).toLowerCase();
+    }
+
+    const getPrimaryFileType = fileType => {
+        const loc = fileType.indexOf('/');
+        if (loc === -1) return fileType;
+        return fileType.substring(0, loc);
+    }
+
     const onDrop =  useCallback(acceptedFiles => {
-        console.log(acceptedFiles);
+        const filteredFiles = acceptedFiles.filter(file => {
+            const extension = getFileExtension(file.name);
+            switch(extension) {
+                case 'png':
+                case 'jpeg':
+                case 'jpg':
+                case 'gif':
+                    return true;
+                default:
+                    return false;
+            }
+        })
+        
+        if (!filteredFiles.length) {
+            alert('Please select an image file');
+            return;
+        }
+
+        if (filteredFiles.length > 100) {
+            alert('Please select 100 files or less.');
+        }
+
+        console.log('filteredFiles', filteredFiles);
+
+        const signatureData = filteredFiles.map(file => {
+            const path = file.path;
+            const extension = getFileExtension(file.name);
+            const fileType =  getPrimaryFileType(file.type);
+            console.log(path, extension, fileType)
+            return ({
+                path,
+                extension,
+                fileType
+            })
+        })
+
+        console.log(socketRef.current)
+
+        setImages(filteredFiles);
+        socketRef.current.emit('get-upload-url', signatureData)
+
+        console.log('emit get-upload-url', signatureData);
     
     }, [])
 
