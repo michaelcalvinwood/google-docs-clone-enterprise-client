@@ -6,7 +6,7 @@ import {
 } from 'react-router-dom'
 import TextEditor from "./ModuleQuill";
 import { v4 as uuidV4 } from 'uuid';
-
+import "react-loader-spinner/dist/loader/css/react-spinner-loader.css";
 
 function App() {
   return (

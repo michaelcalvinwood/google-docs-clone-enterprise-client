@@ -6,6 +6,8 @@ import { io } from 'socket.io-client';
 import { useParams } from 'react-router-dom';
 import {useDropzone} from 'react-dropzone';
 import axios from 'axios';
+import { Audio } from  'react-loader-spinner'
+// for different spinner options see https://www.npmjs.com/package/react-loader-spinner
 
 const TextEditor = () => {
     const {id: documentId} = useParams();
@@ -13,6 +15,8 @@ const TextEditor = () => {
     const [quill, _setQuill] = useState();
     const [images, _setImages] = useState();
     const [insertImage, setInsertImage] = useState(false);
+    const [uploadingImages, setUploadingImages] = useState(false);
+    const [uploadMessage, setUploadMessage] = useState("Drag 'n' drop some files here, or click to select files")
 
     const socketRef = useRef(socket);
     const quillRef = useRef(quill);
@@ -78,20 +82,26 @@ const TextEditor = () => {
                 }
 
                 try {
+                    setUploadMessage(`Processing file #${i+1}`);
+                    setUploadingImages(true);
                     const response = await axios(request);
                     console.log(response);
                     const curQuill = quillRef.current;
                     console.log('quill', curQuill)
                     const range = curQuill.selection.savedRange;
                     console.log('range', range);
-                    const value = result[i].url;
+                    const value = `https://google-docs-clone.nyc3.digitaloceanspaces.com/${result[i].fileName}`;
+                
                     curQuill.insertEmbed(range.index, 'image', value, Quill.sources.USER);
                     
                 } catch(e) {
                     console.error(e);
                 }
             }
-            
+
+            setInsertImage(false);
+            setUploadingImages(false);
+            setUploadMessage("Drag 'n' drop some files here, or click to select files");
             
         })
 
@@ -258,7 +268,7 @@ const TextEditor = () => {
         setImages(filteredFiles);
         socketRef.current.emit('get-upload-url', signatureData)
 
-        console.log('emit get-upload-url', signatureData);
+        console.log('emit get-upload-url', signatureData, documentId);
     
     }, [])
 
@@ -275,23 +285,20 @@ const TextEditor = () => {
                     {...getInputProps()} 
                     className='module-quill__dropzone-input'/>
                 <p className='module-quill__instructions'>
-                    {   isDragActive ? 
-                        "Drop the files here ..." : 
-                        "Drag 'n' drop some files here, or click to select files"
+                    {uploadMessage}
+                    {uploadingImages ? 
+                        <Audio /> :
+                        <button className='module-quill__cancel-image-button'
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                setInsertImage(false)
+                                }
+                            }>
+                            Cancel
+                        </button>
                     }
-                    <button className='module-quill__cancel-image-button'
-                    onClick={(e) => {
-                        e.stopPropagation();
-                        setInsertImage(false)
-                        }
-                    }>
-                        Cancel
-                    </button>
                 </p>
-                { 
-                    
-                    
-                }
+                
            </div>
         }
     </div>
