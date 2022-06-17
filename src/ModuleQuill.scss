@@ -6,6 +6,13 @@
         box-sizing: border-box;
     }
     
+    & .ql-download {
+        margin-top: -.25rem;
+    }
+    & .ql-download:after {
+        content: url('../src/images/cloud-download.svg');
+        zoom: 97%; 
+    }
    & .ql-editor{
         width: 8.5in;
         min-height: 11in;

@@ -49,11 +49,12 @@ const TextEditor = () => {
         [{ list:  "ordered" }, { list:  "bullet" }],
         [{ indent:  "-1" }, { indent:  "+1" }, { align: [] }],
         ["link", "image", "video", "code-block"],
-        ["clean"],
+        ["clean", "download"],
     
     ]    
 
     const imageHandler = () => setInsertImage(true);
+    const downloadHandler = () => alert('download');
 
     useEffect(() => {
         const s = io("http://localhost:7201");
@@ -199,6 +200,7 @@ const TextEditor = () => {
                     container: TOOLBAR_OPTIONS,
                     handlers: {
                         image: imageHandler,
+                        hello: downloadHandler
                     }
                 },
                
