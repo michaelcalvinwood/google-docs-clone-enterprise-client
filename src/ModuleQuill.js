@@ -56,7 +56,8 @@ const TextEditor = () => {
         [{ list:  "ordered" }, { list:  "bullet" }],
         [{ indent:  "-1" }, { indent:  "+1" }, { align: [] }],
         ["link", "image", "video", "code-block"],
-        ["clean", "word", "pdf"],
+        // ["clean", "word", "pdf"],
+        ["clean"],
     
     ]    
 
@@ -64,9 +65,7 @@ const TextEditor = () => {
         console.log('htmlToPdf', elementHTML);
         try {
             let canvas = await html2canvas(elementHTML, {useCORS: true})
-        
-
-            
+                    
             console.log("onrendered", canvas);
             var pdf = new jsPDF('p', 'pt', 'letter');
       
@@ -77,28 +76,28 @@ const TextEditor = () => {
                 console.log('i', i);
               var srcImg = canvas;
               elementHTML.append(canvas);
-            //   console.log(srcImg);
-            //   var sX = 0;
-            //   var sY = pageHeight * i; // start 1 pageHeight down for every new page
-            //   var sWidth = pageWidth;
-            //   var sHeight = pageHeight;
-            //   var dX = 0;
-            //   var dY = 0;
-            //   var dWidth = pageWidth;
-            //   var dHeight = pageHeight;
+              console.log(srcImg);
+              var sX = 0;
+              var sY = pageHeight * i; // start 1 pageHeight down for every new page
+              var sWidth = pageWidth;
+              var sHeight = pageHeight;
+              var dX = 0;
+              var dY = 0;
+              var dWidth = pageWidth;
+              var dHeight = pageHeight;
       
-            //   window.onePageCanvas = document.createElement("canvas");
-            //   window.onePageCanvas.setAttribute('width', pageWidth);
-            //   window.onePageCanvas.setAttribute('height', pageHeight);
-            //   var ctx = window.onePageCanvas.getContext('2d');
-            //   ctx.drawImage(srcImg, sX, sY, sWidth, sHeight, dX, dY, dWidth, dHeight);
+              window.onePageCanvas = document.createElement("canvas");
+              window.onePageCanvas.setAttribute('width', pageWidth);
+              window.onePageCanvas.setAttribute('height', pageHeight);
+              var ctx = window.onePageCanvas.getContext('2d');
+              ctx.drawImage(srcImg, sX, sY, sWidth, sHeight, dX, dY, dWidth, dHeight);
       
-            //   var canvasDataURL = window.onePageCanvas.toDataURL("image/png", 1.0);
-            //   var width = window.onePageCanvas.width;
-            //   var height = window.onePageCanvas.clientHeight;
+              var canvasDataURL = window.onePageCanvas.toDataURL("image/png", 1.0);
+              var width = window.onePageCanvas.width;
+              var height = window.onePageCanvas.clientHeight;
       
-            //   if (i > 0) // if we're on anything other than the first page, add another page
-            //     pdf.addPage(612, 864); // 8.5" x 12" in pts (inches*72)
+              if (i > 0) // if we're on anything other than the first page, add another page
+                pdf.addPage(612, 864); // 8.5" x 12" in pts (inches*72)
       
               pdf.setPage(i + 1); // now we declare that we're working on that page
               pdf.addImage(canvas, 'PNG', 20, 40, (pageWidth * .65), (pageHeight * .65)); // add content to the page
@@ -144,10 +143,11 @@ const TextEditor = () => {
         
         const docx_blob = await quillToWord.generateWord(delta, configuration); // returns Promise<Blob>
 
-        saveAs(docx_blob, 'word-export.docx');
+        saveAs(docx_blob, `${documentId}.docx`);
         alert('saved');
     };
 
+    // useEffect []
     useEffect(() => {
         const s = io("http://localhost:7201");
         setSocket(s);
@@ -203,7 +203,7 @@ const TextEditor = () => {
         }
     }, [])
 
-    // Load initial document and resetDocument when needed
+    // useEffect [socket, quill, documentId]
     useEffect(() => {
         console.log('load initial document', socket, quill);
         if (socket == null || quill == null) return;
@@ -241,7 +241,7 @@ const TextEditor = () => {
     }, [socket, quill, documentId])
 
     
-    // change document when new delta arrives
+    // useEffect [socket, quill]
     useEffect(() => {
         if (socket == null || quill == null) return;
 
@@ -258,7 +258,7 @@ const TextEditor = () => {
     }, [socket, quill])
 
 
-    // send new delta when document changes
+    // useEffect [socket, quill]
     useEffect(() => {
         if (socket == null || quill == null) return;
 
@@ -277,7 +277,7 @@ const TextEditor = () => {
         }
     }, [socket, quill])
 
-    // add quill editor whenever the component is rendered
+    // useCallback []
     const wrapperRef = useCallback((wrapper) => {
         if (wrapper == null) return;
         wrapper.innerHTML = '';
@@ -292,9 +292,9 @@ const TextEditor = () => {
                     container: TOOLBAR_OPTIONS,
                     handlers: {
                         image: imageHandler,
-                        word: wordHandler,
-                        download: downloadHandler,
-                        pdf: pdfHandler
+                        // word: downloadHandler,
+                        // download: downloadHandler,
+                        // pdf: pdfHandler
                     }
                 },
                
@@ -322,6 +322,7 @@ const TextEditor = () => {
         return fileType.substring(0, loc);
     }
 
+    // useCallback []
     const onDrop =  useCallback(acceptedFiles => {
         const filteredFiles = acceptedFiles.filter(file => {
             const extension = getFileExtension(file.name);
