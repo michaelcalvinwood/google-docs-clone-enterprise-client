@@ -9,12 +9,6 @@ import axios from 'axios';
 import { Audio } from  'react-loader-spinner'
 // for different spinner options see https://www.npmjs.com/package/react-loader-spinner
 
-import { saveAs } from 'file-saver';
-import * as quillToWord from 'quill-to-word';
-import { pdfExporter } from 'quill-to-pdf';
-import {QuillDeltaToHtmlConverter} from 'quill-delta-to-html';
-import html2canvas from 'html2canvas';
-import jsPDF from 'jspdf';
 
 const TextEditor = () => {
     const {id: documentId} = useParams();
@@ -23,7 +17,7 @@ const TextEditor = () => {
     const [images, _setImages] = useState();
     const [insertImage, setInsertImage] = useState(false);
     const [uploadingImages, setUploadingImages] = useState(false);
-    const [uploadMessage, setUploadMessage] = useState("Drag 'n' drop some files here, or click to select files")
+    const [uploadMessage, setUploadMessage] = useState("Drag 'n' drop some files here, or click to select files");
 
     const socketRef = useRef(socket);
     const quillRef = useRef(quill);
@@ -57,19 +51,49 @@ const TextEditor = () => {
         [{ indent:  "-1" }, { indent:  "+1" }, { align: [] }],
         ["link", "image", "video", "code-block"],
         ["clean"],
-    
     ]    
 
     if (!window.googleDocsClone) window.googleDocsClone = {};
-    
+    if (!window.debugCounter) window.debugCounter = 1;
+
     const imageHandler = () => setInsertImage(true);
     
     // useEffect []
     useEffect(() => {
-        const s = io("http://localhost:7201");
+        const s = io("https://google-docs-clone.appgalleria.com:7201");
+        console.log('socket connection', s);
         setSocket(s);
 
-        s.on('get-upload-url', async result => {
+        const wrapper = document.querySelector('.module-quill__editor');
+        if (wrapper == null) {
+            console.error('Cannot locate .module-quill__editor');
+            return;
+        }
+
+        wrapper.innerHTML = '';
+        
+        const editor = document.createElement('div');
+        wrapper.append(editor);
+
+        const settings = {
+            theme: "snow",
+            modules: {
+                toolbar: {
+                    container: TOOLBAR_OPTIONS,
+                    handlers: {
+                        image: imageHandler,
+                    }
+                },
+               
+            }
+        }
+        
+        const q = new Quill(editor, settings);
+        q.setText('Loading...')
+        console.log('setQuill', q);
+        setQuill(q);
+
+        const getUploadUrl = async result => {
             console.log('on get-upload-url', result);
             const selectedImages = imagesRef.current;
 
@@ -111,11 +135,49 @@ const TextEditor = () => {
 
             setInsertImage(false);
             setUploadingImages(false);
-            setUploadMessage("Drag 'n' drop some files here, or click to select files");
+            setUploadMessage("Drag 'n' drop some files here, or click to select files");   
+        }
+
+        s.on('get-upload-url', getUploadUrl);
+
+        const getInitialDocument = deltas => {
+            console.log('initialDocument', deltas);
+            const curQuill = quillRef.current;
             
-        })
+            curQuill.disable();
+            curQuill.setContents('');
+            const contents = deltas.forEach(delta => {
+                const parsed = JSON.parse(delta);
+                console.log('parsed', parsed)
+                curQuill.updateContents(parsed);
+            });
+            curQuill.enable();
+            window.googleDocsClone.nextIndex = deltas.length + 1;
+            
+            const curLength = curQuill.getLength();
+            const {cursorIndex} = window.googleDocsClone;
+
+            if (cursorIndex && cursorIndex < curLength) curQuill.setSelection(cursorIndex, 0);
+            else curQuill.setSelection(curLength, 0);
+            console.log('NextIndex', window.googleDocsClone.nextIndex);
+        }
+
+        s.on('getInitialDocument', getInitialDocument);
+
+        const newDelta = (delta, nextIndex, sourceId) => {
+            console.log('newDeltaHandler', delta, nextIndex, sourceId, s.id);
+            window.googleDocsClone.nextIndex = nextIndex;
+            console.log('NextIndex', window.googleDocsClone.nextIndex);
+            const curQuill = quillRef.current;
+            if (sourceId !== s.id) curQuill.updateContents(delta);
+        }
+
+        s.on('newDelta', newDelta);
 
         return () => {
+            s.off('get-upload-url', getUploadUrl);
+            s.off('getInitialDocument', getInitialDocument);
+            s.off('newDelta', newDelta);
             s.disconnect();
         }
     }, [])
@@ -125,36 +187,7 @@ const TextEditor = () => {
         console.log('load initial document', socket, quill);
         if (socket == null || quill == null) return;
         
-        socket.once('getInitialDocument', deltas => {
-            console.log('initialDocument', deltas);
-            
-            quill.setContents('');
-            const contents = deltas.forEach(delta => {
-                const parsed = JSON.parse(delta);
-                console.log('parsed', parsed)
-                quill.updateContents(parsed);
-            });
-            quill.enable();
-            window.googleDocsClone.expectedIndex = deltas.length + 1;
-        });
-
-        socket.on('resetDocument', deltas => {
-            console.log('on resetDocument', deltas);
-            quill.setContents('');
-            const contents = deltas.forEach(delta => {
-                const parsed = JSON.parse(delta);
-                console.log('parsed', parsed)
-                quill.updateContents(parsed);
-            });
-
-            // move cursor to end of contents
-            quill.setSelection(quill.getLength(), 0);
-
-        } )
-
         socket.emit('getInitialDocument', documentId);
-
-        //TODO: use return to clean up socket event handlers
 
     }, [socket, quill, documentId])
 
@@ -163,62 +196,34 @@ const TextEditor = () => {
     useEffect(() => {
         if (socket == null || quill == null) return;
 
-        const receivedNewDeltaHandler = (delta, index) => {
-            console.log('newDeltaHandler', delta, index);
-            quill.updateContents(delta);
-            window.googleDocsClone.expectedIndex = index;
-        }
-
-        socket.on('newDelta', receivedNewDeltaHandler);
-
-        const newDeltaHandler = (delta, oldDelta, source) => {
-            console.log('on text-change', delta);
+        const textChange = (delta, oldDelta, source) => {
+            console.log('on text-change', delta, oldDelta, source);
 
             if (source !== 'user') return;
 
-            socket.emit("newDelta", delta, window.googleDocsClone.expectedIndex);
+            const curPosition = quill.getSelection();
+
+            if (curPosition) window.googleDocsClone.cursorIndex = curPosition.index;
+
+            if(window.debugCounter) {
+                ++window.debugCounter;
+                console.log('debugCounter', window.debugCounter);
+
+                if (window.debugCounter >= 5) {
+                    socket.emit("newDelta", documentId, delta, 0); 
+                    window.debugCounter = 1;
+                    return;       
+                }
+            }
+            socket.emit("newDelta", documentId, delta, window.googleDocsClone.nextIndex);
         }
 
-        quill.on('text-change', newDeltaHandler);
+        quill.on('text-change', textChange);
 
         return () => {
-            quill.off('text-change', newDeltaHandler);
-            socket.off('newDelta', receivedNewDeltaHandler);
+            quill.off('text-change', textChange);
         }
     }, [socket, quill])
-
-    // useCallback []
-    const wrapperRef = useCallback((wrapper) => {
-        if (wrapper == null) return;
-        wrapper.innerHTML = '';
-        
-        const editor = document.createElement('div');
-        wrapper.append(editor);
-
-        const settings = {
-            theme: "snow",
-            modules: {
-                toolbar: {
-                    container: TOOLBAR_OPTIONS,
-                    handlers: {
-                        image: imageHandler,
-                        // word: downloadHandler,
-                        // download: downloadHandler,
-                        // pdf: pdfHandler
-                    }
-                },
-               
-            }
-        }
-        
-        const q = new Quill(editor, settings);
-        q.disable();
-        q.setText('Loading...')
-        console.log('setQuill', q);
-        setQuill(q);
-
-        return;
-    }, []);
 
     const getFileExtension = fileName => {
         const loc = fileName.lastIndexOf('.');
@@ -284,7 +289,8 @@ const TextEditor = () => {
     return (
     <div className="module-quill">
         <div className='module-quill__html-output'></div>
-        <div className="module-quill__editor" ref={wrapperRef} />
+        {/* <div className="module-quill__editor" ref={wrapperRef} /> */}
+        <div className="module-quill__editor" />
         { insertImage &&
             <div 
                 {...getRootProps()}
