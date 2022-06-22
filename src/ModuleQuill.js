@@ -8,7 +8,7 @@ import {useDropzone} from 'react-dropzone';
 import axios from 'axios';
 import { Audio } from  'react-loader-spinner'
 // for different spinner options see https://www.npmjs.com/package/react-loader-spinner
-
+//https://www.npmjs.com/package/html-to-docx
 
 const TextEditor = () => {
     const {id: documentId} = useParams();
@@ -18,6 +18,7 @@ const TextEditor = () => {
     const [insertImage, setInsertImage] = useState(false);
     const [uploadingImages, setUploadingImages] = useState(false);
     const [uploadMessage, setUploadMessage] = useState("Drag 'n' drop some files here, or click to select files");
+    const [mailLink, setMailLink] = useState(false);
 
     const socketRef = useRef(socket);
     const quillRef = useRef(quill);
@@ -50,13 +51,13 @@ const TextEditor = () => {
         [{ list:  "ordered" }, { list:  "bullet" }],
         [{ indent:  "-1" }, { indent:  "+1" }, { align: [] }],
         ["link", "image", "video", "code-block"],
-        ["clean"],
+        ["clean", "mail"],
     ]    
 
     if (!window.googleDocsClone) window.googleDocsClone = {};
-    if (!window.debugCounter) window.debugCounter = 1;
-
+    
     const imageHandler = () => setInsertImage(true);
+    const mailHandler = () => setMailLink(true);
     
     // useEffect []
     useEffect(() => {
@@ -82,6 +83,7 @@ const TextEditor = () => {
                     container: TOOLBAR_OPTIONS,
                     handlers: {
                         image: imageHandler,
+                        mail: mailHandler
                     }
                 },
                
@@ -90,21 +92,16 @@ const TextEditor = () => {
         
         const q = new Quill(editor, settings);
         q.setText('Loading...')
-        console.log('setQuill', q);
         setQuill(q);
 
         const getUploadUrl = async result => {
-            console.log('on get-upload-url', result);
             const selectedImages = imagesRef.current;
-
-            console.log(selectedImages);
 
             axios.defaults.headers.put['Access-Control-Allow-Origin'] = '*';
 
             for (let i = 0; i < result.length; ++i) {
                 const selectedImage = selectedImages.find(image => image.path === result[i].path);
 
-                console.log('selectedImage', selectedImage);
                 const request = {
                     url: result[i].url,
                     method: 'put',
@@ -119,11 +116,8 @@ const TextEditor = () => {
                     setUploadMessage(`Processing file #${i+1}`);
                     setUploadingImages(true);
                     const response = await axios(request);
-                    console.log(response);
                     const curQuill = quillRef.current;
-                    console.log('quill', curQuill)
                     const range = curQuill.selection.savedRange;
-                    console.log('range', range);
                     const value = `https://google-docs-clone.nyc3.digitaloceanspaces.com/${result[i].fileName}`;
                 
                     curQuill.insertEmbed(range.index, 'image', value, Quill.sources.USER);
@@ -148,7 +142,6 @@ const TextEditor = () => {
             curQuill.setContents('');
             const contents = deltas.forEach(delta => {
                 const parsed = JSON.parse(delta);
-                console.log('parsed', parsed)
                 curQuill.updateContents(parsed);
             });
             curQuill.enable();
@@ -159,15 +152,12 @@ const TextEditor = () => {
 
             if (cursorIndex && cursorIndex < curLength) curQuill.setSelection(cursorIndex, 0);
             else curQuill.setSelection(curLength, 0);
-            console.log('NextIndex', window.googleDocsClone.nextIndex);
         }
 
         s.on('getInitialDocument', getInitialDocument);
 
         const newDelta = (delta, nextIndex, sourceId) => {
-            console.log('newDeltaHandler', delta, nextIndex, sourceId, s.id);
             window.googleDocsClone.nextIndex = nextIndex;
-            console.log('NextIndex', window.googleDocsClone.nextIndex);
             const curQuill = quillRef.current;
             if (sourceId !== s.id) curQuill.updateContents(delta);
         }
@@ -184,7 +174,6 @@ const TextEditor = () => {
 
     // useEffect [socket, quill, documentId]
     useEffect(() => {
-        console.log('load initial document', socket, quill);
         if (socket == null || quill == null) return;
         
         socket.emit('getInitialDocument', documentId);
@@ -197,24 +186,12 @@ const TextEditor = () => {
         if (socket == null || quill == null) return;
 
         const textChange = (delta, oldDelta, source) => {
-            console.log('on text-change', delta, oldDelta, source);
-
             if (source !== 'user') return;
 
             const curPosition = quill.getSelection();
 
             if (curPosition) window.googleDocsClone.cursorIndex = curPosition.index;
 
-            if(window.debugCounter) {
-                ++window.debugCounter;
-                console.log('debugCounter', window.debugCounter);
-
-                if (window.debugCounter >= 5) {
-                    socket.emit("newDelta", documentId, delta, 0); 
-                    window.debugCounter = 1;
-                    return;       
-                }
-            }
             socket.emit("newDelta", documentId, delta, window.googleDocsClone.nextIndex);
         }
 
@@ -261,8 +238,6 @@ const TextEditor = () => {
             alert('Please select 100 files or less.');
         }
 
-        console.log('filteredFiles', filteredFiles);
-
         const signatureData = filteredFiles.map(file => {
             const path = file.path;
             const extension = getFileExtension(file.name);
@@ -278,10 +253,7 @@ const TextEditor = () => {
         console.log(socketRef.current)
 
         setImages(filteredFiles);
-        socketRef.current.emit('get-upload-url', signatureData)
-
-        console.log('emit get-upload-url', signatureData, documentId);
-    
+        socketRef.current.emit('get-upload-url', signatureData)    
     }, [])
 
     const {getRootProps, getInputProps, isDragActive} = useDropzone({onDrop})
@@ -313,6 +285,31 @@ const TextEditor = () => {
                     }
                 </p>
            </div>
+        }
+        {
+            mailLink &&
+            <div className='module-quill__mail-container'>
+                <div className='module-quill__mail'>
+                    <p className='module-quill__mail-instructions'>
+                        Send the document link to your colleagues.
+                   
+                        <a href={`mailto:?subject=Let's Collaborate&body=Please go to the following link to start collaborating together: https://google-docs-clone.appgalleria.com/documents/${documentId}`}>
+                            <button
+                                className='module-quill__sendMail'
+                                onClick={()=>setMailLink(false)}
+                            >
+                            Send
+                            </button>
+                        </a>
+                        <button
+                            className='module-quill__cancelMail'
+                            onClick={()=>setMailLink(false)}
+                        >
+                        Cancel
+                        </button>
+                    </p>
+                </div>
+            </div>
         }
     </div>
   )
