@@ -1,12 +1,17 @@
 import './ModuleQuill.scss';
-import React, {useCallback, useEffect, useRef, useState } from 'react';
+import React, {createElement, useCallback, useEffect, useRef, useState } from 'react';
 import Quill from 'quill';
 import "quill/dist/quill.snow.css";
 import { io } from 'socket.io-client';
 import { useParams } from 'react-router-dom';
 import {useDropzone} from 'react-dropzone';
 import axios from 'axios';
-import { Audio } from  'react-loader-spinner'
+import { Audio } from  'react-loader-spinner';
+import {QuillDeltaToHtmlConverter} from 'quill-delta-to-html';
+// import {htmlDocx} from 'html-docx-js';
+// import htmlDocx from 'html-docx-js/dist/html-docx';
+import { saveAs } from 'file-saver';
+
 // for different spinner options see https://www.npmjs.com/package/react-loader-spinner
 //https://www.npmjs.com/package/html-to-docx
 
@@ -51,13 +56,46 @@ const TextEditor = () => {
         [{ list:  "ordered" }, { list:  "bullet" }],
         [{ indent:  "-1" }, { indent:  "+1" }, { align: [] }],
         ["link", "image", "video", "code-block"],
-        ["clean", "mail"],
+        ["clean", "word", "mail"],
     ]    
 
     if (!window.googleDocsClone) window.googleDocsClone = {};
     
     const imageHandler = () => setInsertImage(true);
     const mailHandler = () => setMailLink(true);
+    const wordHandler = async () => {
+        const curQuill = quillRef.current;
+        const editor = document.querySelector('.module-quill__editor');
+        const htmlOutput = document.querySelector('.module-quill__html-output');
+        editor.style.display = 'none';
+        
+        // convert quill deltas to HTML
+        const deltas = curQuill.getContents();
+        let converter = new QuillDeltaToHtmlConverter(deltas.ops, {});
+        let html = converter.convert();
+        // htmlOutput.innerHTML = html;
+        // const images = document.querySelectorAll('.module-quill__html-output .ql-image');
+        // if (images) {
+        //     for (let i = 0; i < images.length; ++i) {
+        //         images[i].style.width="90%";
+        //         images[i].style.display="block";
+        //         images[i].style.margin="auto";
+        //     }
+        // }
+
+        // let curHtml = htmlOutput.innerHTML;
+        // curHtml = "<!DOCTYPE html>\n<head></head><body>" + curHtml + '</body>';
+        // console.log('curHtml', curHtml);
+        
+        // var converted = htmlDocx.asBlob(curHtml);
+        // console.log('converted', converted);
+        // saveAs(converted, 'test.docx');
+
+        // const fileBuffer = await HTMLtoDOCX(curHtml, null, {});
+        // saveAs(fileBuffer, `${documentId}.docx`);
+
+        socketRef.current.emit('downloadWord', html);
+    }
     
     // useEffect []
     useEffect(() => {
@@ -82,8 +120,9 @@ const TextEditor = () => {
                 toolbar: {
                     container: TOOLBAR_OPTIONS,
                     handlers: {
-                        image: imageHandler,
-                        mail: mailHandler
+                        // image: imageHandler,
+                        mail: mailHandler,
+                        word: wordHandler
                     }
                 },
                
@@ -164,12 +203,26 @@ const TextEditor = () => {
 
         s.on('newDelta', newDelta);
 
+        s.on('downloadWord', json => {
+            let link="https://www.mendocinocounty.org/home/showpublisheddocument/42485/637547020830500000";
+            link=`https://google-docs-clone.nyc3.digitaloceanspaces.com/${documentId}/yoyo.docx`;
+            link=`https://google-docs-clone.nyc3.digitaloceanspaces.com/yoyo.docx`;
+            const a = document.createElement('a')
+            a.href=link;
+            a.download = 'yoyo.docx';
+            a.click()
+            console.log(link);
+            // var blob = new Blob([fileBuffer], {type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'});
+            // saveAs(blob, `${documentId}.docx`);
+        })
+
         return () => {
             s.off('get-upload-url', getUploadUrl);
             s.off('getInitialDocument', getInitialDocument);
             s.off('newDelta', newDelta);
             s.disconnect();
         }
+
     }, [])
 
     // useEffect [socket, quill, documentId]
