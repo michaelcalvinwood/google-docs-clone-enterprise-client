@@ -15,6 +15,9 @@ import { saveAs } from 'file-saver';
 // for different spinner options see https://www.npmjs.com/package/react-loader-spinner
 //https://www.npmjs.com/package/html-to-docx
 
+window.pdfAlert = true;
+window.docAlert = true;
+
 const TextEditor = () => {
     const {id: documentId} = useParams();
     const [socket, _setSocket] = useState();
@@ -25,10 +28,13 @@ const TextEditor = () => {
     const [uploadMessage, setUploadMessage] = useState("Drag 'n' drop some files here, or click to select files");
     const [mailLink, setMailLink] = useState(false);
     const [isDownloading, setIsDownloading] = useState(false);
+    const [cleanDocument, setCleanDocument] = useState(false);
+    
 
     const socketRef = useRef(socket);
     const quillRef = useRef(quill);
     const imagesRef = useRef(images);
+
 
     // special state setters for values that need to be synchronously accessed and/or accessed within event handlers
 
@@ -46,7 +52,7 @@ const TextEditor = () => {
         imagesRef.current = i;
         _setImages(i);
     }
-
+    
     const TOOLBAR_OPTIONS = [
         [{ font: [] }],
         [{ header: [1, 2, 3, 4, 5, 6, false] }],
@@ -85,11 +91,18 @@ const TextEditor = () => {
         const html = getHtml();
         socketRef.current.emit('downloadPdf', html, documentId);
     }
+    const cleanHandler = () => {
+        setCleanDocument(true);
+    }
+    const cleanDocumentHandler = () => {
+        setCleanDocument(false);
+        setIsDownloading(true);
+        socketRef.current.emit('cleanDocument', documentId);
+    }
 
     // useEffect []
     useEffect(() => {
         const s = io("https://google-docs-clone.appgalleria.com:7201");
-        console.log('socket connection', s);
         setSocket(s);
 
         const wrapper = document.querySelector('.module-quill__editor');
@@ -112,7 +125,8 @@ const TextEditor = () => {
                         image: imageHandler,
                         mail: mailHandler,
                         word: wordHandler,
-                        pdf: pdfHandler
+                        pdf: pdfHandler,
+                        clean: cleanHandler
                     }
                 },
                
@@ -164,7 +178,7 @@ const TextEditor = () => {
         s.on('get-upload-url', getUploadUrl);
 
         const getInitialDocument = deltas => {
-            console.log('initialDocument', deltas);
+            setIsDownloading(false);
             const curQuill = quillRef.current;
             
             curQuill.disable();
@@ -194,25 +208,40 @@ const TextEditor = () => {
         s.on('newDelta', newDelta);
 
         s.on('downloadWord', link => {
-            if (!link) return alert("Error creating Word Document");
+            setIsDownloading(false); 
+            if (!link && window.docAlert){   
+                alert("Error creating Word Document. Please try PDF.");
+                window.docAlert = false;
+                return;
+            }
+            if (!link) return;
 
-            const a = document.createElement('a')
-            a.href=link;
-            a.download = `${documentId}.docx`;
-            a.click()
-            console.log(link);
-            setIsDownloading(false);            
+            const newWin = window.open(link);
+
+            if (!newWin || newWin.closed || typeof newWin.closed == "undefined") {
+                alert('Please enable popups for this site to download documents.');
+            }
+
+                       
         })
 
         s.on('downloadPdf', link => {
-            if (!link) return alert("Error creating Word Document");
+            setIsDownloading(false);  
+            if (!link && window.pdfAlert) {
+                alert("Error creating PDF Document. Please try Word.");
+                window.pdfAlert = false;
+                return;
+            }
 
-            const a = document.createElement('a')
-            a.href=link;
-            a.download = `${documentId}.pdf`;
-            a.click()
-            console.log(link);
-            setIsDownloading(false);            
+            if (!link) return;
+
+            const newWin = window.open(link);
+
+            if (!newWin || newWin.closed || typeof newWin.closed == "undefined") {
+                alert('Please enable popups for this site to download documents.');
+            }
+
+                      
         })
 
         return () => {
@@ -294,7 +323,6 @@ const TextEditor = () => {
             const path = file.path;
             const extension = getFileExtension(file.name);
             const fileType =  getPrimaryFileType(file.type);
-            console.log(path, extension, fileType)
             return ({
                 path,
                 extension,
@@ -302,10 +330,8 @@ const TextEditor = () => {
             })
         })
 
-        console.log(socketRef.current)
-
         setImages(filteredFiles);
-        socketRef.current.emit('get-upload-url', signatureData)    
+        socketRef.current.emit('get-upload-url', signatureData, documentId)    
     }, [])
 
     const {getRootProps, getInputProps, isDragActive} = useDropzone({onDrop})
@@ -367,6 +393,29 @@ const TextEditor = () => {
             isDownloading &&
             <div className='module-quill__is-downloading-container'>
                 <Audio />
+            </div>
+        }
+        {
+            cleanDocument &&
+            <div className='module-quill__clean-document-container'>
+                <div className='module-quill__clean-document'>
+                    <p className="module-quill__clean-document-instructions">
+                        Are you sure that you want to erase the document contents? This cannot be undone.
+                    
+                        <button
+                            className='module-quill__clean-document-confirm'
+                            onClick={cleanDocumentHandler}
+                        >
+                            Yes
+                        </button>
+                        <button
+                            className='module-quill__clean-document-cancel'
+                            onClick={()=>setCleanDocument(false)}
+                        >
+                            Cancel
+                        </button>
+                    </p>
+                </div>
             </div>
         }
     </div>

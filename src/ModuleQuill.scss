@@ -15,7 +15,7 @@
         max-width: 100%;
     };
 
-    &__mail-container, &__is-downloading-container {
+    &__mail-container, &__is-downloading-container, &__clean-document-container {
         position: fixed;
         top: 0;
         left: 0;
@@ -26,8 +26,7 @@
         align-items: center;
         padding: 3rem;
     }
-
-    &__mail-instructions {
+    &__mail-instructions, &__clean-document-instructions {
         background-color: white;
         z-index: 200;
         border-radius: 4px;
@@ -41,8 +40,19 @@
         width: 5rem;
         cursor: pointer;
     } 
-    
     &__cancelMail {
+        display: block;
+        width: 5rem;
+        margin: auto;
+        cursor: pointer;
+    }
+    &__clean-document-confirm {
+        display: block;
+        margin: 1rem auto .5rem auto;
+        width: 5rem;
+        cursor: pointer;
+    }
+    &__clean-document-cancel {
         display: block;
         width: 5rem;
         margin: auto;
