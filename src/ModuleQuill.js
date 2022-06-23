@@ -66,9 +66,7 @@ const TextEditor = () => {
         const curQuill = quillRef.current;
         const editor = document.querySelector('.module-quill__editor');
         const htmlOutput = document.querySelector('.module-quill__html-output');
-        // editor.style.display = 'none';
         
-        // convert quill deltas to HTML
         const deltas = curQuill.getContents();
         let converter = new QuillDeltaToHtmlConverter(deltas.ops, {});
         let html = converter.convert();
@@ -80,11 +78,12 @@ const TextEditor = () => {
     const wordHandler = async () => {
         setIsDownloading(true);
         const html = getHtml();
-        socketRef.current.emit('downloadWord', html);
+        socketRef.current.emit('downloadWord', html, documentId);
     }
     const pdfHandler = async () => {
+        setIsDownloading(true);
         const html = getHtml();
-        socketRef.current.emit('downloadPdf', html);
+        socketRef.current.emit('downloadPdf', html, documentId);
     }
 
     // useEffect []
@@ -194,18 +193,26 @@ const TextEditor = () => {
 
         s.on('newDelta', newDelta);
 
-        s.on('downloadWord', json => {
-            let link="https://www.mendocinocounty.org/home/showpublisheddocument/42485/637547020830500000";
-            link=`https://google-docs-clone.nyc3.digitaloceanspaces.com/${documentId}/yoyo.docx`;
-            link=`https://google-docs-clone.nyc3.digitaloceanspaces.com/yoyo.docx`;
+        s.on('downloadWord', link => {
+            if (!link) return alert("Error creating Word Document");
+
             const a = document.createElement('a')
             a.href=link;
-            a.download = 'yoyo.docx';
+            a.download = `${documentId}.docx`;
             a.click()
             console.log(link);
-            setIsDownloading(false);
-            // var blob = new Blob([fileBuffer], {type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'});
-            // saveAs(blob, `${documentId}.docx`);
+            setIsDownloading(false);            
+        })
+
+        s.on('downloadPdf', link => {
+            if (!link) return alert("Error creating Word Document");
+
+            const a = document.createElement('a')
+            a.href=link;
+            a.download = `${documentId}.pdf`;
+            a.click()
+            console.log(link);
+            setIsDownloading(false);            
         })
 
         return () => {
