@@ -24,6 +24,7 @@ const TextEditor = () => {
     const [uploadingImages, setUploadingImages] = useState(false);
     const [uploadMessage, setUploadMessage] = useState("Drag 'n' drop some files here, or click to select files");
     const [mailLink, setMailLink] = useState(false);
+    const [isDownloading, setIsDownloading] = useState(false);
 
     const socketRef = useRef(socket);
     const quillRef = useRef(quill);
@@ -56,47 +57,36 @@ const TextEditor = () => {
         [{ list:  "ordered" }, { list:  "bullet" }],
         [{ indent:  "-1" }, { indent:  "+1" }, { align: [] }],
         ["link", "image", "video", "code-block"],
-        ["clean", "word", "mail"],
+        ["clean", "word", "pdf", "mail"],
     ]    
 
     if (!window.googleDocsClone) window.googleDocsClone = {};
-    
-    const imageHandler = () => setInsertImage(true);
-    const mailHandler = () => setMailLink(true);
-    const wordHandler = async () => {
+
+    const getHtml = () => {
         const curQuill = quillRef.current;
         const editor = document.querySelector('.module-quill__editor');
         const htmlOutput = document.querySelector('.module-quill__html-output');
-        editor.style.display = 'none';
+        // editor.style.display = 'none';
         
         // convert quill deltas to HTML
         const deltas = curQuill.getContents();
         let converter = new QuillDeltaToHtmlConverter(deltas.ops, {});
         let html = converter.convert();
-        // htmlOutput.innerHTML = html;
-        // const images = document.querySelectorAll('.module-quill__html-output .ql-image');
-        // if (images) {
-        //     for (let i = 0; i < images.length; ++i) {
-        //         images[i].style.width="90%";
-        //         images[i].style.display="block";
-        //         images[i].style.margin="auto";
-        //     }
-        // }
-
-        // let curHtml = htmlOutput.innerHTML;
-        // curHtml = "<!DOCTYPE html>\n<head></head><body>" + curHtml + '</body>';
-        // console.log('curHtml', curHtml);
-        
-        // var converted = htmlDocx.asBlob(curHtml);
-        // console.log('converted', converted);
-        // saveAs(converted, 'test.docx');
-
-        // const fileBuffer = await HTMLtoDOCX(curHtml, null, {});
-        // saveAs(fileBuffer, `${documentId}.docx`);
-
-        socketRef.current.emit('downloadWord', html);
+        return html;
     }
     
+    const imageHandler = () => setInsertImage(true);
+    const mailHandler = () => setMailLink(true);
+    const wordHandler = async () => {
+        setIsDownloading(true);
+        const html = getHtml();
+        socketRef.current.emit('downloadWord', html);
+    }
+    const pdfHandler = async () => {
+        const html = getHtml();
+        socketRef.current.emit('downloadPdf', html);
+    }
+
     // useEffect []
     useEffect(() => {
         const s = io("https://google-docs-clone.appgalleria.com:7201");
@@ -120,9 +110,10 @@ const TextEditor = () => {
                 toolbar: {
                     container: TOOLBAR_OPTIONS,
                     handlers: {
-                        // image: imageHandler,
+                        image: imageHandler,
                         mail: mailHandler,
-                        word: wordHandler
+                        word: wordHandler,
+                        pdf: pdfHandler
                     }
                 },
                
@@ -212,6 +203,7 @@ const TextEditor = () => {
             a.download = 'yoyo.docx';
             a.click()
             console.log(link);
+            setIsDownloading(false);
             // var blob = new Blob([fileBuffer], {type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'});
             // saveAs(blob, `${documentId}.docx`);
         })
@@ -362,6 +354,12 @@ const TextEditor = () => {
                         </button>
                     </p>
                 </div>
+            </div>
+        }
+        {
+            isDownloading &&
+            <div className='module-quill__is-downloading-container'>
+                <Audio />
             </div>
         }
     </div>

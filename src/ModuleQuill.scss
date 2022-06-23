@@ -15,7 +15,7 @@
         max-width: 100%;
     };
 
-    &__mail-container {
+    &__mail-container, &__is-downloading-container {
         position: fixed;
         top: 0;
         left: 0;
@@ -56,7 +56,7 @@
     // }
     
     & .ql-download {
-        margin-top: -.25rem;
+        margin-top: -.1rem;
     }
     & .ql-download:after {
         content: url('../src/images/cloud-download.svg');
@@ -64,26 +64,30 @@
     }
 
     & .ql-word {
-        height: .75rem;
-        zoom: 75%;
-
+        zoom: 70%;
+        
         &:after {
             content: url('../src/images/file-word.svg');
+            display: inline-block;
+            width: 16px;
+            height: auto;
         }
     }
 
     & .ql-pdf {
-        height: .75rem;
-        zoom: 75%;
+        zoom: 70%;
 
         &:after {
             content: url('../src/images/file-pdf.svg');
+            display: inline-block;
+            width: 16px;
+            height: auto;
         }
     }
 
     & .ql-mail {
         margin-top: -.25rem;
-        zoom: 85%;
+        zoom: 90%;
 
         &:after{
             content: url('../src/images/mail_outline.svg');
